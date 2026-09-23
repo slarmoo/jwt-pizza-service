@@ -4,3 +4,4 @@
 config.js
 coverage
 dist
+populateTable.sh
