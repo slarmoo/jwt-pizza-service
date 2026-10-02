@@ -7,6 +7,7 @@ let testUserAuthToken;
 const adminUser = { name: 'pizza diner', email: 'reg@test.com', password: 'toomanysecrets', roles: [{ role: Role.Admin }] };
 
 beforeAll(async () => {
+    await DB.resetDatabase();
     testUser.email = randomName() + '@test.com';
     const registerRes = await request(app).post('/api/auth').send(testUser);
     testUserAuthToken = registerRes.body.token;

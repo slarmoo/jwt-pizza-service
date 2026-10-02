@@ -6,6 +6,7 @@ const { Role } = require('../model/model.js');
 const dbModel = require('./dbModel.js');
 class DB {
   constructor() {
+    this.databaseName = process.env.DATABASE ?? config.db.connection.database;
     this.initialized = this.initializeDatabase();
   }
 
@@ -321,7 +322,7 @@ class DB {
       decimalNumbers: true,
     });
     if (setUse) {
-      await connection.query(`USE ${config.db.connection.database}`);
+      await connection.query(`USE ${this.databaseName}`);
     }
     return connection;
   }
@@ -333,8 +334,8 @@ class DB {
         const dbExists = await this.checkDatabaseExists(connection);
         console.log(dbExists ? 'Database exists' : 'Database does not exist, creating it');
 
-        await connection.query(`CREATE DATABASE IF NOT EXISTS ${config.db.connection.database}`);
-        await connection.query(`USE ${config.db.connection.database}`);
+        await connection.query(`CREATE DATABASE IF NOT EXISTS ${this.databaseName}`);
+        await connection.query(`USE ${this.databaseName}`);
 
         if (!dbExists) {
           console.log('Successfully created database');
@@ -357,8 +358,33 @@ class DB {
   }
 
   async checkDatabaseExists(connection) {
-    const [rows] = await connection.execute(`SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?`, [config.db.connection.database]);
+    const [rows] = await connection.execute(`SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?`, [this.databaseName]);
     return rows.length > 0;
+  }
+
+  async deleteDatabase() {
+    try {
+      const connection = await this._getConnection(false);
+      try {
+        const dbExists = await this.checkDatabaseExists(connection);
+        if (!dbExists) {
+          console.log("database already doesn't exist");
+          return;
+        }
+        await connection.query(`DROP DATABASE ${this.databaseName}`);
+        console.log(`Successfully deleted database ${this.databaseName}`);
+      } finally {
+        connection.end();
+      }
+    } catch (err) {
+      console.error(JSON.stringify({ message: 'Error deleting database', exception: err.message, connection: config.db.connection }));
+    }
+  }
+
+  async resetDatabase() {
+    await this.initialized;
+    await this.deleteDatabase();
+    await this.initializeDatabase();
   }
 }
 
