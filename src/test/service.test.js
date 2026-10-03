@@ -30,6 +30,7 @@ beforeAll(async () => {
     await DB.addUser(franchiseeUser);
     const loginRes2 = await request(app).put('/api/auth').send(franchiseeUser);
     franchiseeAuthToken = loginRes2.body.token;
+    franchiseeUser.id = loginRes2.body.user.id;
 });
 
 describe('auth tests', () => {
@@ -104,6 +105,24 @@ describe('franchise tests', () => {
         const franchiseDeleteRes = await request(app).delete(`/api/franchise/${franchiseCreateRes.body.id}`).set('Authorization', `Bearer ${adminUserAuthToken}`);
         expect(franchiseDeleteRes.status).toBe(200);
         expect(franchiseDeleteRes.body.message).toMatch('franchise deleted');
+    });
+
+    test('get franchises', async () => {
+        const franchiseViewRes = await request(app).get('/api/franchise').set('Authorization', `Bearer ${testUserAuthToken}`);
+        expect(franchiseViewRes.status).toBe(200);
+        expect(franchiseViewRes.body.franchises.length).toBe(1);
+        expect(franchiseViewRes.body.franchises[0].name).toMatch(franchise);
+        expect(franchiseViewRes.body.franchises[0].stores.length).toBe(1);
+        expect(franchiseViewRes.body.franchises[0].stores[0].name).toMatch(store);
+    });
+
+    test('get user franchises', async () => {
+        const franchiseViewRes = await request(app).get(`/api/franchise/${franchiseeUser.id}`).set('Authorization', `Bearer ${franchiseeAuthToken}`);
+        expect(franchiseViewRes.status).toBe(200);
+        expect(franchiseViewRes.body.length).toBe(1);
+        expect(franchiseViewRes.body[0].name).toMatch(franchise);
+        expect(franchiseViewRes.body[0].stores.length).toBe(1);
+        expect(franchiseViewRes.body[0].stores[0].name).toMatch(store);
     });
 });
 
