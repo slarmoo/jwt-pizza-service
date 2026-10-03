@@ -58,7 +58,7 @@ describe('auth tests', () => {
         const expectedUser = { ...testUser, roles: [{ role: 'diner' }] };
         delete expectedUser.password;
         expect(registerRes.body.user).toMatchObject(expectedUser);
-
+        testUserAuthToken = registerRes.body.token;
     });
 });
 
@@ -127,11 +127,14 @@ describe('franchise tests', () => {
 });
 
 describe('order tests', () => {
+    let menuItem1Id;
+    let order;
     test('add menu options', async () => {
         const addMenuRes1 = await request(app).put(`/api/order/menu`).send(veggie).set('Authorization', `Bearer ${adminUserAuthToken}`);
         const addMenuRes2 = await request(app).put(`/api/order/menu`).send(margarita).set('Authorization', `Bearer ${adminUserAuthToken}`);
         expect(addMenuRes1.status).toBe(200);
         expect(addMenuRes2.status).toBe(200);
+        menuItem1Id = addMenuRes1.body[0].id;
 
         const getMenuRes = await request(app).get(`/api/order/menu`).set('Authorization', `Bearer ${testUserAuthToken}`);
         expect(getMenuRes.status).toBe(200);
@@ -139,22 +142,38 @@ describe('order tests', () => {
         expect(getMenuRes.body).toMatchObject([veggie, margarita]);
     });
 
-    // test('logout', async () => {
-    //     const logoutRes = await request(app).delete('/api/auth').set('Authorization', `Bearer ${testUserAuthToken}`);
-    //     expect(logoutRes.status).toBe(200);
-    //     expect(logoutRes.body.message).toMatch('logout successful');
-    // });
+    test('create order', async () => {
+        //create franchise..
+        const franchiseCreateRes = await request(app).post('/api/franchise').send({
+            "name": randomName(),
+            "admins": [{ "email": franchiseeUser.email }]
+        }).set('Authorization', `Bearer ${adminUserAuthToken}`);
+        expect(franchiseCreateRes.status).toBe(200);
+        
+        //create store..
+        const storeCreateRes = await request(app).post(`/api/franchise/${franchiseCreateRes.body.id}/store`).send({ "name": randomName() }).set('Authorization', `Bearer ${franchiseeAuthToken}`);
+        expect(storeCreateRes.status).toBe(200);
 
-    // test('register', async () => {
-    //     const registerRes = await request(app).post('/api/auth').send(testUser);
-    //     expect(registerRes.status).toBe(200);
-    //     expectValidJwt(registerRes.body.token);
+        //now make order to that store
+        order = {
+            franchiseId: franchiseCreateRes.body.id,
+            storeId: storeCreateRes.body.id,
+            items: [{ menuId: menuItem1Id, description: veggie.description, price: veggie.price }]
+        };
+        const createOrderRes = await request(app).post(`/api/order`).send(order).set('Authorization', `Bearer ${testUserAuthToken}`);
+        expect(createOrderRes.status).toBe(200);
+        expectValidJwt(createOrderRes.body.jwt);
+        expect(createOrderRes.body.order).toMatchObject(order);
+    });
 
-    //     const expectedUser = { ...testUser, roles: [{ role: 'diner' }] };
-    //     delete expectedUser.password;
-    //     expect(registerRes.body.user).toMatchObject(expectedUser);
+    test('view order', async () => {
+        const viewOrderRes = await request(app).get(`/api/order`).set('Authorization', `Bearer ${testUserAuthToken}`);
+        expect(viewOrderRes.status).toBe(200);
+        expect(viewOrderRes.body.dinerId).toBeDefined();
+        expect(viewOrderRes.body.orders.length).toBe(1);
+        expect(viewOrderRes.body.orders[0]).toMatchObject(order);
 
-    // });
+    });
 });
 
 
