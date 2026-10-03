@@ -5,6 +5,12 @@ const { Role, DB } = require('../database/database.js');
 const testUser = { name: 'pizza diner', email: 'reg@test.com', password: 'a' };
 let testUserAuthToken;
 const adminUser = { name: 'pizza diner', email: 'reg@test.com', password: 'toomanysecrets', roles: [{ role: Role.Admin }] };
+let adminUserAuthToken;
+const franchiseeUser = { name: 'pizza diner', email: 'reg@test.com', password: 'franchise', roles: [{ role: Role.Diner }] };
+let franchiseeAuthToken;
+
+// const veggie = { "title": "Veggie", "description": "A garden of delight", "image": "pizza1.png", "price": 0.0038 };
+// const margarita = { "title": "Margarita", "description": "Essential classic", "image": "pizza3.png", "price": 0.0042 };
 
 beforeAll(async () => {
     await DB.resetDatabase();
@@ -16,7 +22,14 @@ beforeAll(async () => {
     adminUser.name = randomName();
     adminUser.email = adminUser.name + '@admin.com';
     await DB.addUser(adminUser);
+    const loginRes = await request(app).put('/api/auth').send(adminUser);
+    adminUserAuthToken = loginRes.body.token;
 
+    franchiseeUser.name = randomName();
+    franchiseeUser.email = franchiseeUser.name + '@franchisee.com';
+    await DB.addUser(franchiseeUser);
+    const loginRes2 = await request(app).put('/api/auth').send(franchiseeUser);
+    franchiseeAuthToken = loginRes2.body.token;
 });
 
 describe('auth tests', () => {
@@ -45,6 +58,52 @@ describe('auth tests', () => {
         delete expectedUser.password;
         expect(registerRes.body.user).toMatchObject(expectedUser);
 
+    });
+});
+
+describe('franchise tests', () => {
+    const franchise = randomName();
+    let franchiseID;
+    const store = randomName();
+    test('create franchise', async () => {
+        const franchiseCreateRes = await request(app).post('/api/franchise').send({
+            "name": franchise,
+            "admins": [{"email": franchiseeUser.email}]
+        }).set('Authorization', `Bearer ${adminUserAuthToken}`);
+        expect(franchiseCreateRes.status).toBe(200);
+        expect(franchiseCreateRes.body.name).toMatch(franchise);
+        expect(franchiseCreateRes.body.admins[0].email).toMatch(franchiseeUser.email);
+        expect(franchiseCreateRes.body.admins.length).toBe(1);
+
+        franchiseID = franchiseCreateRes.body.id;
+    });
+
+    test('create store', async () => {
+        const storeCreateRes = await request(app).post(`/api/franchise/${franchiseID}/store`).send({ "name": store }).set('Authorization', `Bearer ${franchiseeAuthToken}`);
+        expect(storeCreateRes.status).toBe(200);
+        delete storeCreateRes.body.id;
+        expect(storeCreateRes.body).toMatchObject({ name: store });
+    });
+
+    test('delete store', async () => {
+        const storeCreateRes = await request(app).post(`/api/franchise/${franchiseID}/store`).send({ "name": randomName() }).set('Authorization', `Bearer ${franchiseeAuthToken}`);
+        expect(storeCreateRes.status).toBe(200);
+
+        const storeDeleteRes = await request(app).delete(`/api/franchise/${franchiseID}/store/${storeCreateRes.body.id}`).set('Authorization', `Bearer ${franchiseeAuthToken}`);
+        expect(storeDeleteRes.status).toBe(200);
+        expect(storeDeleteRes.body.message).toMatch('store deleted');
+    });
+
+    test('delete franchise', async () => {
+        const franchiseCreateRes = await request(app).post('/api/franchise').send({
+            "name": randomName(),
+            "admins": [{ "email": franchiseeUser.email }]
+        }).set('Authorization', `Bearer ${adminUserAuthToken}`);
+        expect(franchiseCreateRes.status).toBe(200);
+
+        const franchiseDeleteRes = await request(app).delete(`/api/franchise/${franchiseCreateRes.body.id}`).set('Authorization', `Bearer ${adminUserAuthToken}`);
+        expect(franchiseDeleteRes.status).toBe(200);
+        expect(franchiseDeleteRes.body.message).toMatch('franchise deleted');
     });
 });
 
