@@ -9,8 +9,8 @@ let adminUserAuthToken;
 const franchiseeUser = { name: 'pizza diner', email: 'reg@test.com', password: 'franchise', roles: [{ role: Role.Diner }] };
 let franchiseeAuthToken;
 
-// const veggie = { "title": "Veggie", "description": "A garden of delight", "image": "pizza1.png", "price": 0.0038 };
-// const margarita = { "title": "Margarita", "description": "Essential classic", "image": "pizza3.png", "price": 0.0042 };
+const veggie = { "title": "Veggie", "description": "A garden of delight", "image": "pizza1.png", "price": 0.0038 };
+const margarita = { "title": "Margarita", "description": "Essential classic", "image": "pizza3.png", "price": 0.0042 };
 
 beforeAll(async () => {
     await DB.resetDatabase();
@@ -127,15 +127,17 @@ describe('franchise tests', () => {
 });
 
 describe('order tests', () => {
-    // test('login', async () => {
-    //     const loginRes = await request(app).put('/api/auth').send(testUser);
-    //     expect(loginRes.status).toBe(200);
-    //     expectValidJwt(loginRes.body.token);
+    test('add menu options', async () => {
+        const addMenuRes1 = await request(app).put(`/api/order/menu`).send(veggie).set('Authorization', `Bearer ${adminUserAuthToken}`);
+        const addMenuRes2 = await request(app).put(`/api/order/menu`).send(margarita).set('Authorization', `Bearer ${adminUserAuthToken}`);
+        expect(addMenuRes1.status).toBe(200);
+        expect(addMenuRes2.status).toBe(200);
 
-    //     const expectedUser = { ...testUser, roles: [{ role: 'diner' }] };
-    //     delete expectedUser.password;
-    //     expect(loginRes.body.user).toMatchObject(expectedUser);
-    // });
+        const getMenuRes = await request(app).get(`/api/order/menu`).set('Authorization', `Bearer ${testUserAuthToken}`);
+        expect(getMenuRes.status).toBe(200);
+        expect(getMenuRes.body.length).toBe(2);
+        expect(getMenuRes.body).toMatchObject([veggie, margarita]);
+    });
 
     // test('logout', async () => {
     //     const logoutRes = await request(app).delete('/api/auth').set('Authorization', `Bearer ${testUserAuthToken}`);
