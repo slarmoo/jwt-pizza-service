@@ -74,14 +74,27 @@ jobs:
       #     curl -s -X POST "https://pizza-factory.cs329.click/api/badge/${{ secrets.NET_ID }}/jwtpizzaservicecoverage?label=Coverage&value=$coverage%25&color=$color" -H "authorization: bearer ${{ secrets.FACTORY_API_KEY }}"
 
       - name: Create dist
+        env:
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOSTNAME: ${{ secrets.DB_HOSTNAME }}
         run: |
           mkdir dist
           cp Dockerfile dist
           cp -r src/* dist
           cp *.json dist
-          sed -i "s/root/${{ secrets.DB_USERNAME }}/g" dist/config.js
-          sed -i "s/tempdbpassword/${{ secrets.DB_PASSWORD }}/g" dist/config.js
-          sed -i "s/127.0.0.1/${{ secrets.DB_HOSTNAME }}/g" dist/config.js
+          # sed -i "s/root/${{ secrets.DB_USERNAME }}/g" dist/config.js
+          # sed -i "s/tempdbpassword/${{ secrets.DB_PASSWORD }}/g" dist/config.js
+          # sed -i "s/127.0.0.1/${{ secrets.DB_HOSTNAME }}/g" dist/config.js
+
+          echo "Checking username replacement"
+          sed -i "s|root|$DB_USERNAME|g" dist/config.js
+
+          echo "Checking password replacement"
+          sed -i "s|tempdbpassword|$DB_PASSWORD|g" dist/config.js
+
+          echo "Checking hostname replacement"
+          sed -i "s|127\.0\.0\.1|$DB_HOSTNAME|g" dist/config.js
 
       - name: Update distribution artifact
         uses: actions/upload-artifact@v4
